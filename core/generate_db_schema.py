@@ -1,49 +1,60 @@
-import os
-from fastapi import FastAPI, HTTPException
-from openai import OpenAI
+import asyncio
 import json
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-client = OpenAI(api_key=OPENAI_API_KEY)
-app = FastAPI()
+from fastapi import HTTPException
+from pydantic import BaseModel
 
 
-def generateCodeWithCommentsFromNL(description: str, language: str) -> str:
-    base_prompt = (
-        f"Generate {language} code from the following description with inline comments:\n"
-        f"{description}\n"
-        "Example input: 'Create a Python function that checks if a number is even'\n"
-        "Expected output format:\n"
-        "\"\"\"\n"
-        "def is_even(n):\n"
-        "    # Check if the number is divisible by 2\n"
-        "    if n % 2 == 0:\n"
-        "        return True\n"
-        "    # If not divisible by 2, it's not even\n"
-        "    return False\n"
-        "\"\"\""
-    )
+class CodeRequest(BaseModel):
+    description: str
 
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": base_prompt}]
-    )
 
-    output = response.choices[0].message.content
-    return output
+class Api3:
+    def __init__(self, _client, router):
+        self.client = _client
+        router.add_api_route(
+            path="/generate_code_with_comments/",
+            endpoint=self.get_code_with_comments,
+            methods=["POST"]
+        )
 
-@app.get("/generate_code_with_comments/")
-def get_code_with_comments(description: str, language: str):
-    if not description:
-        raise HTTPException(status_code=400, detail="Description must be provided in search query")
+    def generateDatabaseSchemaFromNL(self, description: str) -> dict:
+        base_prompt = (
+            "Create a database schema based on the following description: "
+            f"{description}\n"
+            "The schema should be in Python dictionary format like this:\n"
+            "{\n"
+            "    \"tables\": {\n"
+            "        \"users\": {\n"
+            "            \"name\": \"string\",\n"
+            "            \"email\": \"string\",\n"
+            "            \"age\": \"integer\"\n"
+            "        }\n"
+            "    }\n"
+            "}\n"
+            "Make sure the output is a valid Python dictionary."
+        )
 
-    try:
-        code_with_comments = generateCodeWithCommentsFromNL(description, language)
-        return code_with_comments
+        response = self.client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": base_prompt}]
+        )
 
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=500, detail="Could not decode JSON response from OpenAI.")
+        schema_output_str = response.choices[0].message.content
+        schema = json.loads(schema_output_str)
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return schema
+
+    async def get_schema(self, request: CodeRequest):
+        if not request.description:
+            raise HTTPException(status_code=400, detail="Description must be provided in search query")
+
+        try:
+            db_schema = await asyncio.to_thread(self.generateDatabaseSchemaFromNL, request.description)
+            return db_schema
+
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=500, detail="Could not decode JSON response from OpenAI.")
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
