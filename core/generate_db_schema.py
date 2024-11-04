@@ -13,8 +13,8 @@ class Api3:
     def __init__(self, _client, router):
         self.client = _client
         router.add_api_route(
-            path="/generate_code_with_comments/",
-            endpoint=self.get_code_with_comments,
+            path="/generate_db_schema/",
+            endpoint=self.get_schema,
             methods=["POST"]
         )
 

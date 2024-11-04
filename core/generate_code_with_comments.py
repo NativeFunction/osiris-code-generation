@@ -17,6 +17,7 @@ class Api7:
             endpoint=self.get_code_with_comments,
             methods=["POST"]
         )
+        print("API3 initialized and route added: /generate_db_schema/")
 
     def generateCodeWithCommentsFromNL(self, description: str, language: str) -> str:
         base_prompt = (
